@@ -1808,9 +1808,9 @@ class DWIN_LCD:
 			self.lcd.Frame_AreaCopy(1, 240, 104, 264, 114, self.LBLX, self.MBASE(self.TUNE_CASE_BED))  # Bed...
 			self.lcd.Frame_AreaCopy(1, 1, 89, 83, 101, self.LBLX + 27, self.MBASE(self.TUNE_CASE_BED))  # ...Temperature
 		if self.pd.HAS_FAN:
-		 	self.lcd.Frame_AreaCopy(1, 0, 119, 64, 132, self.LBLX, self.MBASE(self.TUNE_CASE_FAN))  # Fan speed
+			self.lcd.Frame_AreaCopy(1, 0, 119, 64, 132, self.LBLX, self.MBASE(self.TUNE_CASE_FAN))  # Fan speed
 		if self.pd.HAS_ZOFFSET_ITEM:
-		 	self.lcd.Frame_AreaCopy(1, 93, 179, 141, 189, self.LBLX, self.MBASE(self.TUNE_CASE_ZOFF))  # Z-offset
+			self.lcd.Frame_AreaCopy(1, 93, 179, 141, 189, self.LBLX, self.MBASE(self.TUNE_CASE_ZOFF))  # Z-offset
 		self.Draw_Back_First(self.select_tune.now == 0)
 		if (self.select_tune.now):
 			self.Draw_Menu_Cursor(self.select_tune.now)
@@ -1835,15 +1835,15 @@ class DWIN_LCD:
 				3, 216, self.MBASE(self.TUNE_CASE_BED), self.pd.thermalManager['temp_bed']['target'])
 
 		if self.pd.HAS_FAN:
-		 	self.Draw_Menu_Line(self.TUNE_CASE_FAN, self.ICON_FanSpeed)
-		 	self.lcd.Draw_IntValue(
+			self.Draw_Menu_Line(self.TUNE_CASE_FAN, self.ICON_FanSpeed)
+			self.lcd.Draw_IntValue(
 		 		True, True, 0, self.lcd.font8x16, self.lcd.Color_White, self.lcd.Color_Bg_Black,
 		 		3, 216, self.MBASE(self.TUNE_CASE_FAN),
 		 		self.pd.thermalManager['fan_speed'][0]
 		 	)
 		if self.pd.HAS_ZOFFSET_ITEM:
-		 	self.Draw_Menu_Line(self.TUNE_CASE_ZOFF, self.ICON_Zoffset)
-		 	self.lcd.Draw_Signed_Float(
+			self.Draw_Menu_Line(self.TUNE_CASE_ZOFF, self.ICON_Zoffset)
+			self.lcd.Draw_Signed_Float(
 		 		self.lcd.font8x16, self.lcd.Color_Bg_Black, 2, 2, 202, self.MBASE(self.TUNE_CASE_ZOFF), self.pd.BABY_Z_VAR * 100
 		 	)
 
