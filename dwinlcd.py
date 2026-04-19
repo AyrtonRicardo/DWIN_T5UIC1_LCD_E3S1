@@ -1820,7 +1820,7 @@ class DWIN_LCD:
 		for i in range(3):
 			self.lcd.ICON_Show(self.ICON, self.ICON_PrintSize + i, 26, 99 + i * 73)
 			self.lcd.Draw_Line(self.lcd.Line_Color, 16, self.MBASE(2) + i * 73, 256, 156 + i * 73)
-		self.Draw_Menu_Line(self.INFO_BEDMESH_LINE, self.ICON_AutoLeveling, "Bed Mesh")
+		self.Draw_Menu_Line(self.INFO_BEDMESH_LINE, self.ICON_Homing, "Bed Mesh")
 		if self.select_info.now == self.INFO_CASE_BEDMESH:
 			self.Draw_Menu_Cursor(self.INFO_BEDMESH_LINE)
 
@@ -1856,10 +1856,12 @@ class DWIN_LCD:
 		vmin = min(all_vals)
 		vmax = max(all_vals)
 
+		# Grid must stay within the menu area (y=31 to STATUS_Y=360)
+		# so EachMomentUpdate redraws of the status bar don't corrupt it.
 		GRID_X = 16
 		GRID_Y = 40
 		GRID_W = self.lcd.DWIN_WIDTH - 32  # 240px with 16px margins
-		GRID_H = 380
+		GRID_H = 270                        # y=40 to y=310, well within STATUS_Y=360
 		cell_w = GRID_W // cols
 		cell_h = GRID_H // rows
 
@@ -1871,7 +1873,7 @@ class DWIN_LCD:
 				y0 = GRID_Y + r * cell_h
 				self.lcd.Draw_Rectangle(1, color, x0, y0, x0 + cell_w - 1, y0 + cell_h - 1)
 
-		label_y = GRID_Y + GRID_H + 8
+		label_y = GRID_Y + GRID_H + 8  # y=318, still within menu area
 		self.lcd.Draw_String(False, False, self.lcd.font6x12, self.lcd.Color_White,
 			self.lcd.Color_Bg_Black, 16, label_y,
 			"Lo:{:.3f}  Hi:{:.3f}".format(vmin, vmax))
