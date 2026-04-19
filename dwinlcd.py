@@ -292,6 +292,7 @@ class DWIN_LCD:
 
 	INFO_CASE_BEDMESH = 1
 	INFO_CASE_TOTAL = 1
+	INFO_BEDMESH_LINE = 5  # visual row below the three static info items
 
 	TUNE_CASE_SPEED = 1
 	TUNE_CASE_TEMP = (TUNE_CASE_SPEED + 1)
@@ -685,10 +686,12 @@ class DWIN_LCD:
 			return
 		if (encoder_diffState == self.ENCODER_DIFF_CW):
 			if self.select_info.inc(1 + self.INFO_CASE_TOTAL):
-				self.Move_Highlight(1, self.select_info.now)
+				self.Erase_Menu_Cursor(0)
+				self.Draw_Menu_Cursor(self.INFO_BEDMESH_LINE)
 		elif (encoder_diffState == self.ENCODER_DIFF_CCW):
 			if self.select_info.dec():
-				self.Move_Highlight(-1, self.select_info.now)
+				self.Erase_Menu_Cursor(self.INFO_BEDMESH_LINE)
+				self.Draw_Menu_Cursor(0)
 		elif (encoder_diffState == self.ENCODER_DIFF_ENTER):
 			if self.select_info.now == 0:  # Back
 				if self.pd.HAS_ONESTEP_LEVELING:
@@ -1817,9 +1820,9 @@ class DWIN_LCD:
 		for i in range(3):
 			self.lcd.ICON_Show(self.ICON, self.ICON_PrintSize + i, 26, 99 + i * 73)
 			self.lcd.Draw_Line(self.lcd.Line_Color, 16, self.MBASE(2) + i * 73, 256, 156 + i * 73)
-		self.Draw_Menu_Line(self.INFO_CASE_BEDMESH, self.ICON_AutoLeveling, "Bed Mesh")
-		if self.select_info.now:
-			self.Draw_Menu_Cursor(self.select_info.now)
+		self.Draw_Menu_Line(self.INFO_BEDMESH_LINE, self.ICON_AutoLeveling, "Bed Mesh")
+		if self.select_info.now == self.INFO_CASE_BEDMESH:
+			self.Draw_Menu_Cursor(self.INFO_BEDMESH_LINE)
 
 	def rgb565(self, r, g, b):
 		return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
@@ -1836,12 +1839,14 @@ class DWIN_LCD:
 			return self.rgb565(int(200 * f), int(200 * (1 - f)), 0)
 
 	def Draw_Bed_Mesh_Screen(self, mesh):
-		self.lcd.Frame_Clear(self.lcd.Color_Bg_Black)
+		self.Clear_Popup_Area()
+		self.lcd.Draw_String(False, False, self.lcd.font8x16, self.lcd.Color_White,
+			self.lcd.Color_Bg_Blue, 80, 8, "Bed Mesh")
 
 		matrix = mesh.get('mesh_matrix') or mesh.get('probed_matrix')
 		if not matrix:
 			self.lcd.Draw_String(False, False, self.lcd.font8x16, self.lcd.Color_White,
-				self.lcd.Color_Bg_Black, 20, 220, "No mesh data available")
+				self.lcd.Color_Bg_Black, 20, 200, "No mesh data")
 			self.lcd.UpdateLCD()
 			return
 
@@ -1851,12 +1856,12 @@ class DWIN_LCD:
 		vmin = min(all_vals)
 		vmax = max(all_vals)
 
-		GRID_X, GRID_Y, GRID_W, GRID_H = 16, 50, 240, 370
+		GRID_X = 16
+		GRID_Y = 40
+		GRID_W = self.lcd.DWIN_WIDTH - 32  # 240px with 16px margins
+		GRID_H = 380
 		cell_w = GRID_W // cols
 		cell_h = GRID_H // rows
-
-		self.lcd.Draw_String(False, False, self.lcd.font8x16, self.lcd.Color_White,
-			self.lcd.Color_Bg_Black, 86, 14, "Bed Mesh")
 
 		for r in range(rows):
 			for c in range(cols):
@@ -1864,13 +1869,14 @@ class DWIN_LCD:
 				color = self.mesh_color(val, vmin, vmax)
 				x0 = GRID_X + c * cell_w
 				y0 = GRID_Y + r * cell_h
-				self.lcd.Draw_Rectangle(1, color, x0, y0, x0 + cell_w - 2, y0 + cell_h - 2)
+				self.lcd.Draw_Rectangle(1, color, x0, y0, x0 + cell_w - 1, y0 + cell_h - 1)
 
-		self.lcd.Draw_String(False, False, self.lcd.font8x16, self.lcd.Color_White,
-			self.lcd.Color_Bg_Black, 16, 432,
-			"Lo:{:.3f} Hi:{:.3f}".format(vmin, vmax))
+		label_y = GRID_Y + GRID_H + 8
+		self.lcd.Draw_String(False, False, self.lcd.font6x12, self.lcd.Color_White,
+			self.lcd.Color_Bg_Black, 16, label_y,
+			"Lo:{:.3f}  Hi:{:.3f}".format(vmin, vmax))
 		self.lcd.Draw_String(False, False, self.lcd.font6x12, self.lcd.Line_Color,
-			self.lcd.Color_Bg_Black, 60, 460, "Click to go back")
+			self.lcd.Color_Bg_Black, 72, label_y + 16, "Click to go back")
 		self.lcd.UpdateLCD()
 
 	def HMI_BedMesh(self):
