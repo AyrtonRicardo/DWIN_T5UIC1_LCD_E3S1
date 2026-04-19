@@ -379,6 +379,12 @@ class PrinterData:
 		self.X_MAX_POS = int(volume[0])
 		self.Y_MAX_POS = int(volume[1])
 
+	def get_bed_mesh(self):
+		data = self.getREST('/printer/objects/query?bed_mesh')
+		if data and 'result' in data and 'status' in data['result']:
+			return data['result']['status'].get('bed_mesh')
+		return None
+
 	def GetFiles(self, refresh=False):
 		if not self.files or refresh:
 			self.files = self.getREST('/server/files/list')["result"]

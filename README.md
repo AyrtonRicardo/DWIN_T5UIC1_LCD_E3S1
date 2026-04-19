@@ -206,7 +206,7 @@ journalctl -u simpleLCD.service -f       # follow logs
  Info Menu
 
     * Shows printer info.
-    * Trigger bed mesh calibration (BED_MESH_CALIBRATE).
+    * Bed Mesh: if a mesh is active, displays a color heatmap (blue=low, green=center, red=high) with min/max Z values. If no mesh is loaded, triggers BED_MESH_CALIBRATE.
 
 ## Notworking:
     * Save / Loding Preheat setting, hardcode on start can be changed in menu but will not retane on restart.

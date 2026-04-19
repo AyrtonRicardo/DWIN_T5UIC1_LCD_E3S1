@@ -145,6 +145,7 @@ class DWIN_LCD:
 
 	Print_window = 33
 	Popup_Window = 34
+	BedMesh = 35
 
 	MINUNITMULT = 10
 
@@ -698,7 +699,12 @@ class DWIN_LCD:
 					self.select_page.set(3)
 					self.Goto_MainMenu()
 			elif self.select_info.now == self.INFO_CASE_BEDMESH:
-				self.pd.sendGCode("BED_MESH_CALIBRATE")
+				mesh = self.pd.get_bed_mesh()
+				if mesh:
+					self.checkkey = self.BedMesh
+					self.Draw_Bed_Mesh_Screen(mesh)
+				else:
+					self.pd.sendGCode("BED_MESH_CALIBRATE")
 		self.lcd.UpdateLCD()
 
 	def HMI_Printing(self):
@@ -1815,6 +1821,68 @@ class DWIN_LCD:
 		if self.select_info.now:
 			self.Draw_Menu_Cursor(self.select_info.now)
 
+	def rgb565(self, r, g, b):
+		return ((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3)
+
+	def mesh_color(self, val, vmin, vmax):
+		if vmax == vmin:
+			return self.rgb565(0, 200, 0)
+		t = (val - vmin) / (vmax - vmin)  # 0.0 → 1.0
+		if t < 0.5:
+			f = t * 2
+			return self.rgb565(0, int(200 * f), int(200 * (1 - f)))
+		else:
+			f = (t - 0.5) * 2
+			return self.rgb565(int(200 * f), int(200 * (1 - f)), 0)
+
+	def Draw_Bed_Mesh_Screen(self, mesh):
+		self.lcd.Frame_Clear(self.lcd.Color_Bg_Black)
+
+		matrix = mesh.get('mesh_matrix') or mesh.get('probed_matrix')
+		if not matrix:
+			self.lcd.Draw_String(False, False, self.lcd.font8x16, self.lcd.Color_White,
+				self.lcd.Color_Bg_Black, 20, 220, "No mesh data available")
+			self.lcd.UpdateLCD()
+			return
+
+		rows = len(matrix)
+		cols = len(matrix[0])
+		all_vals = [v for row in matrix for v in row]
+		vmin = min(all_vals)
+		vmax = max(all_vals)
+
+		GRID_X, GRID_Y, GRID_W, GRID_H = 16, 50, 240, 370
+		cell_w = GRID_W // cols
+		cell_h = GRID_H // rows
+
+		self.lcd.Draw_String(False, False, self.lcd.font8x16, self.lcd.Color_White,
+			self.lcd.Color_Bg_Black, 86, 14, "Bed Mesh")
+
+		for r in range(rows):
+			for c in range(cols):
+				val = matrix[r][c]
+				color = self.mesh_color(val, vmin, vmax)
+				x0 = GRID_X + c * cell_w
+				y0 = GRID_Y + r * cell_h
+				self.lcd.Draw_Rectangle(1, color, x0, y0, x0 + cell_w - 2, y0 + cell_h - 2)
+
+		self.lcd.Draw_String(False, False, self.lcd.font8x16, self.lcd.Color_White,
+			self.lcd.Color_Bg_Black, 16, 432,
+			"Lo:{:.3f} Hi:{:.3f}".format(vmin, vmax))
+		self.lcd.Draw_String(False, False, self.lcd.font6x12, self.lcd.Line_Color,
+			self.lcd.Color_Bg_Black, 60, 460, "Click to go back")
+		self.lcd.UpdateLCD()
+
+	def HMI_BedMesh(self):
+		encoder_diffState = self.get_encoder_state()
+		if encoder_diffState == self.ENCODER_DIFF_NO:
+			return
+		if encoder_diffState == self.ENCODER_DIFF_ENTER:
+			self.checkkey = self.Info
+			self.select_info.reset()
+			self.Draw_Info_Menu()
+		self.lcd.UpdateLCD()
+
 	def Draw_Tune_Menu(self):
 		self.Clear_Main_Window()
 		self.lcd.Frame_AreaCopy(1, 94, 2, 126, 12, 14, 9)
@@ -2357,6 +2425,8 @@ class DWIN_LCD:
 			self.HMI_MaxJerkXYZE()
 		elif self.checkkey == self.Step_value:
 			self.HMI_StepXYZE()
+		elif self.checkkey == self.BedMesh:
+			self.HMI_BedMesh()
 
 	def get_encoder_state(self):
 		if self.EncoderRateLimit:
