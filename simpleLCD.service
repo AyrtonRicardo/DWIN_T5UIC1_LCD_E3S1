@@ -6,7 +6,7 @@ After=multi-user.target
 Type=idle
 EnvironmentFile=/etc/simpleLCD.env
 ExecStartPre=/bin/sleep 20
-ExecStart=${INSTALL_DIR}/run.sh
+ExecStart=/usr/local/bin/simpleLCD
 
 [Install]
 WantedBy=multi-user.target

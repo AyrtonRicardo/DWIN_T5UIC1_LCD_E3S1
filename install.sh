@@ -52,6 +52,15 @@ echo "Written /etc/simpleLCD.env"
 # Make scripts executable
 chmod +x "$INSTALL_DIR/run.sh" "$INSTALL_DIR/restart.sh"
 
+# Create shim at fixed path so systemd ExecStart can use an absolute path
+sudo tee /usr/local/bin/simpleLCD > /dev/null << 'SHIM'
+#!/bin/bash
+source /etc/simpleLCD.env
+exec "$INSTALL_DIR/run.sh"
+SHIM
+sudo chmod +x /usr/local/bin/simpleLCD
+echo "Written /usr/local/bin/simpleLCD"
+
 # Symlink service file
 sudo ln -sf "$INSTALL_DIR/simpleLCD.service" /lib/systemd/system/simpleLCD.service
 echo "Symlinked simpleLCD.service -> /lib/systemd/system/simpleLCD.service"
