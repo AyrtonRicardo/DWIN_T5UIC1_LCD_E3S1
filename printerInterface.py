@@ -4,6 +4,7 @@ import errno
 import select
 import socket
 import json
+import os
 import requests
 from requests.exceptions import ConnectionError
 import atexit
@@ -249,11 +250,11 @@ class PrinterData:
 	SHORT_BUILD_VERSION = "1.00"
 	CORP_WEBSITE_E = "https://www.klipper3d.org/"
 
-	def __init__(self, API_Key, URL='127.0.0.1'):
+	def __init__(self, API_Key, URL='127.0.0.1', klippy_socket='~/printer_data/comms/klippy.sock'):
 		self.op = MoonrakerSocket(URL, 80, API_Key)
 		self.status = None
 		print(self.op.base_address)
-		self.ks = KlippySocket('~/printer_data/comms/klippy.sock', callback=self.klippy_callback)
+		self.ks = KlippySocket(klippy_socket, callback=self.klippy_callback)
 		subscribe = {
 			"id": 4001,
 			"method": "objects/subscribe",

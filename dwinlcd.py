@@ -95,6 +95,7 @@ class DWIN_LCD:
 	select_tune = select_t()
 	select_PLA = select_t()
 	select_ABS = select_t()
+	select_info = select_t()
 
 	index_file = MROWS
 	index_prepare = MROWS
@@ -288,6 +289,9 @@ class DWIN_LCD:
 	CONTROL_CASE_INFO = 3
 	CONTROL_CASE_TOTAL = 4
 
+	INFO_CASE_BEDMESH = 1
+	INFO_CASE_TOTAL = 1
+
 	TUNE_CASE_SPEED = 1
 	TUNE_CASE_TEMP = (TUNE_CASE_SPEED + 1)
 	TUNE_CASE_BED = (TUNE_CASE_TEMP + 1)
@@ -311,7 +315,8 @@ class DWIN_LCD:
 	# Dwen serial screen initialization
 	# Passing parameters: serial port number
 	# DWIN screen uses serial port 1 to send
-	def __init__(self, USARTx, encoder_pins, button_pin, octoPrint_API_Key):
+	def __init__(self, USARTx, encoder_pins, button_pin, octoPrint_API_Key,
+	             moonraker_url='127.0.0.1', klippy_socket='~/printer_data/comms/klippy.sock'):
 		GPIO.setmode(GPIO.BCM)
 		self.encoder = Encoder(encoder_pins[0], encoder_pins[1])
 		self.button_pin = button_pin
@@ -325,7 +330,7 @@ class DWIN_LCD:
 		self.last_cardpercentValue = 101
 		self.lcd = T5UIC1_LCD(USARTx)
 		self.checkkey = self.MainMenu
-		self.pd = PrinterData(octoPrint_API_Key)
+		self.pd = PrinterData(octoPrint_API_Key, URL=moonraker_url, klippy_socket=klippy_socket)
 		self.timer = multitimer.MultiTimer(interval=2, function=self.EachMomentUpdate)
 		self.HMI_ShowBoot()
 		print("Boot looks good")
@@ -445,6 +450,7 @@ class DWIN_LCD:
 					self.HMI_Leveling()
 				else:
 					self.checkkey = self.Info
+					self.select_info.reset()
 					self.Draw_Info_Menu()
 
 		self.lcd.UpdateLCD()
@@ -666,7 +672,7 @@ class DWIN_LCD:
 					y = requests.post(LightOnURL)
 			if (self.select_control.now == 4):  # Power
 				print("Restart")
-				os.system('sudo /home/pi/DWIN_T5UIC1_LCD_E3S1/restart.sh')
+				os.system('sudo ' + os.path.join(os.path.dirname(os.path.abspath(__file__)), 'restart.sh'))
 				self.lcd.UpdateLCD()
 			
 
@@ -676,14 +682,23 @@ class DWIN_LCD:
 		encoder_diffState = self.get_encoder_state()
 		if (encoder_diffState == self.ENCODER_DIFF_NO):
 			return
-		if (encoder_diffState == self.ENCODER_DIFF_ENTER):
-			if self.pd.HAS_ONESTEP_LEVELING:
-				self.checkkey = self.Control
-				self.select_control.set(self.CONTROL_CASE_INFO)
-				self.Draw_Control_Menu()
-			else:
-				self.select_page.set(3)
-				self.Goto_MainMenu()
+		if (encoder_diffState == self.ENCODER_DIFF_CW):
+			if self.select_info.inc(1 + self.INFO_CASE_TOTAL):
+				self.Move_Highlight(1, self.select_info.now)
+		elif (encoder_diffState == self.ENCODER_DIFF_CCW):
+			if self.select_info.dec():
+				self.Move_Highlight(-1, self.select_info.now)
+		elif (encoder_diffState == self.ENCODER_DIFF_ENTER):
+			if self.select_info.now == 0:  # Back
+				if self.pd.HAS_ONESTEP_LEVELING:
+					self.checkkey = self.Control
+					self.select_control.set(self.CONTROL_CASE_INFO)
+					self.Draw_Control_Menu()
+				else:
+					self.select_page.set(3)
+					self.Goto_MainMenu()
+			elif self.select_info.now == self.INFO_CASE_BEDMESH:
+				self.pd.sendGCode("BED_MESH_CALIBRATE")
 		self.lcd.UpdateLCD()
 
 	def HMI_Printing(self):
@@ -1792,10 +1807,13 @@ class DWIN_LCD:
 			(self.lcd.DWIN_WIDTH - len(self.pd.CORP_WEBSITE_E) * self.MENU_CHR_W) / 2, 268,
 			self.pd.CORP_WEBSITE_E
 		)
-		self.Draw_Back_First()
+		self.Draw_Back_First(self.select_info.now == 0)
 		for i in range(3):
 			self.lcd.ICON_Show(self.ICON, self.ICON_PrintSize + i, 26, 99 + i * 73)
 			self.lcd.Draw_Line(self.lcd.Line_Color, 16, self.MBASE(2) + i * 73, 256, 156 + i * 73)
+		self.Draw_Menu_Line(self.INFO_CASE_BEDMESH, self.ICON_AutoLeveling, "Bed Mesh")
+		if self.select_info.now:
+			self.Draw_Menu_Cursor(self.select_info.now)
 
 	def Draw_Tune_Menu(self):
 		self.Clear_Main_Window()

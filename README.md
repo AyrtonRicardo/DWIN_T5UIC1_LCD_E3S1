@@ -103,72 +103,63 @@ I have added some Ender 3S1 specific images:
 <img src ="images/Ender3S1_LCD_Board.JPG?raw=true" width="325" height="200">
 <img src ="images/Ender3S1_LCD_plug.jpg?raw=true" width="325" height="220">
 
-### Run The Code
+### Install
 
-Enter the downloaded DWIN_T5UIC1_LCD_E3S1 folder.
+Enter the downloaded DWIN_T5UIC1_LCD_E3S1 folder and run the install script:
 
-To get  your API key run:
+```bash
+chmod +x install.sh
+./install.sh
+```
+
+The installer will prompt for:
+
+| Prompt | Default | Description |
+|---|---|---|
+| Serial port | `/dev/ttyAMA0` | UART port the LCD is connected to |
+| Moonraker URL | `127.0.0.1` | IP or hostname of your Moonraker instance |
+| Moonraker API Key | *(none)* | Leave empty if your Moonraker doesn't require one |
+| Klippy socket path | `~/printer_data/comms/klippy.sock` | Path to the Klipper Unix socket |
+| Reverse encoder | `N` | Answer `y` for Voxelab Aquila (reversed control wheel) |
+
+To get your Moonraker API key run:
 
 ```bash
 ~/moonraker/scripts/fetch-apikey.sh
 ```
 
-Edit the file run.py and past your API key
+The installer writes all configuration to `/etc/simpleLCD.env`:
+
+```ini
+INSTALL_DIR=/path/to/DWIN_T5UIC1_LCD_E3S1
+LCD_SERIAL_PORT=/dev/ttyAMA0
+MOONRAKER_URL=127.0.0.1
+MOONRAKER_API_KEY=your_key_here
+KLIPPY_SOCKET=~/printer_data/comms/klippy.sock
+ENCODER_REVERSED=false
+```
+
+To change any setting later, edit `/etc/simpleLCD.env` and restart the service:
 
 ```bash
-nano run.py
-```
-This is how the run.py looks for an Ender3v2 and Ender 3 S1
-
-```python
-#!/usr/bin/env python3
-from dwinlcd import DWIN_LCD
-
-encoder_Pins = (26, 19)
-button_Pin = 13
-LCD_COM_Port = '/dev/ttyAMA0'
-API_Key = 'XXXXXX'
-
-DWINLCD = DWIN_LCD(
-	LCD_COM_Port,
-	encoder_Pins,
-	button_Pin,
-	API_Key
-)
+sudo nano /etc/simpleLCD.env
+sudo systemctl restart simpleLCD.service
 ```
 
-If your control wheel is reversed (Voxelab Aquila) change the encoder_pins to this instead.
+### Run manually
 
-```python
-#!/usr/bin/env python3
-from dwinlcd import DWIN_LCD
-
-encoder_Pins = (19, 26)
-button_Pin = 13
-LCD_COM_Port = '/dev/ttyAMA0'
-API_Key = 'XXXXXX'
-
-DWINLCD = DWIN_LCD(
-	LCD_COM_Port,
-	encoder_Pins,
-	button_Pin,
-	API_Key
-)
-```
-Make run.py executable
-
-```
-sudo chmod +x run.py
+```bash
+source /etc/simpleLCD.env
+python3 run.py
 ```
 
-Run with `python3 ./run.py` or './run.py'
-Your output should be:
+Expected output:
 
 ```
-DWIN handshake 
+DWIN handshake
 DWIN OK.
 http://127.0.0.1:80
-Waiting for connect to /tmp/klippy_uds
+Waiting for connect to ~/printer_data/comms/klippy.sock
 
 Connection.
 
@@ -177,34 +168,19 @@ Testing Web-services
 Web site exists
 ```
 
-Press ctrl+c to exit run.py
+Press `Ctrl+C` to exit.
 
-# Run at boot:
+# Run at boot
 
-	Note: Delay of 20s after boot to allow webservices to settal.
-	
-	path of `run.sh` is expected to be `/home/pi/DWIN_T5UIC1_LCD_E3S1/run.sh`
-	path of `run.py` is expected to be `/home/pi/DWIN_T5UIC1_LCD_E3S1/run.py`
-	
-	The run.sh script that is loaded by simpleLCD.service will re-run run.py on firmware restarts of the printe. If it fails to start for 5 times within 30 second it will exit and stop until the net boot. 
+The install script registers `simpleLCD.service` as a systemd service via a symlink to the repo file — no copy is made, so changes to the service file take effect after a `daemon-reload`.
+
+The service loads `/etc/simpleLCD.env` via `EnvironmentFile=` and waits 20 s after boot before starting to allow Moonraker to settle. `run.sh` will re-launch `run.py` up to 5 times if it crashes within 30 seconds (e.g. on a Klipper firmware restart).
 
 ```bash
-chmod +x run.sh simpleLCD.service
+sudo systemctl start simpleLCD.service   # start now
+sudo systemctl status simpleLCD.service  # check status
+journalctl -u simpleLCD.service -f       # follow logs
 ```
-   
-```bash
-sudo cp simpleLCD.service /lib/systemd/system/simpleLCD.service
-```
-   
-```bash
-sudo chmod 644 /lib/systemd/system/simpleLCD.service
-```
-
-```bash
-sudo systemctl enable simpleLCD.service && sudo systemctl start simpleLCD.service
-```
-
-Your LCD should start after 30 seconds. And when you restart your printer firmware the LCD should restart as well.
 
 # Status:
 
@@ -228,8 +204,9 @@ Your LCD should start after 30 seconds. And when you restart your printer firmwa
     * cooldown
  
  Info Menu
- 
+
     * Shows printer info.
+    * Trigger bed mesh calibration (BED_MESH_CALIBRATE).
 
 ## Notworking:
     * Save / Loding Preheat setting, hardcode on start can be changed in menu but will not retane on restart.

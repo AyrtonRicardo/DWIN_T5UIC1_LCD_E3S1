@@ -1,11 +1,12 @@
 [Unit]
- Description=My LCD Service
- After=multi-user.target
+Description=DWIN LCD Service
+After=multi-user.target
 
- [Service]
- Type=idle
- ExecStartPre=/bin/sleep 20
- ExecStart=/bin/sh -c '/home/pi/DWIN_T5UIC1_LCD_E3S1/run.sh'
+[Service]
+Type=idle
+EnvironmentFile=/etc/simpleLCD.env
+ExecStartPre=/bin/sleep 20
+ExecStart=${INSTALL_DIR}/run.sh
 
- [Install]
- WantedBy=multi-user.target
+[Install]
+WantedBy=multi-user.target
