@@ -106,9 +106,36 @@ The Info menu mixes hardcoded pixel positions (icons at y=99, 172, 245; spacing 
 
 `PrinterStatusURL`, `PrinterOnURL`, etc. at the top of `dwinlcd.py` are placeholders (`REPLACEYOURURL`) for local power-control endpoints. These are not read from the env file and must be edited manually if used.
 
+## Hardware: the actual display on this machine
+
+The display installed on this Ender 3 S1 is a **TJC4827X243_011_P04** — not a DWIN T5UIC1.
+
+| Property | Value |
+|---|---|
+| Manufacturer | TJC (Taojin Cai / 淘晶驰) |
+| Model | TJC4827X243_011_P04 |
+| Size | 4.3" |
+| Resolution | 480 × 272 (same as DWIN) |
+| Touch | Resistive |
+| Color | 16-bit RGB565 |
+| UART baud | 115200 |
+| Frame header | `0xAA` (same as DWIN) |
+| Frame terminator | `0xCC 0x33 0xC3 0x3C` (same as DWIN) |
+
+### TJC vs DWIN compatibility
+
+TJC partially emulates the DWIN binary serial protocol — header, terminator, baud rate, and the core drawing commands (`Draw_Rectangle`, `Draw_String`, `ICON_Show`, etc.) are all wire-compatible. **Basic rendering works.** Known limitations:
+
+- **Incomplete command set**: some advanced DWIN commands cause the TJC display to crash or produce garbage. If a new command is added and the display locks up, this is the likely cause.
+- **Small fonts unreliable**: `font6x12` (0x00) may not render correctly or at all; prefer `font8x16` (0x01) and larger.
+- **Line/curve drawing is slower**: `Draw_Line` and circle-drawing commands execute noticeably slower than on DWIN. Avoid drawing many lines in rapid succession.
+- **Icon library format differs**: the `.icl` icon library compiled for DWIN is loaded into TJC flash but icon rendering may differ for some icon IDs. If an icon looks wrong, try a neighbouring ID.
+- **No Nextion/ASCII mode**: this codebase uses the binary DWIN protocol exclusively; do not add Nextion-style `0xFF 0xFF 0xFF` terminators.
+
+### Full-screen content must stay within y=31–359
+
+`EachMomentUpdate` redraws the status bar (y=360–480) every 2 seconds regardless of the active screen. Any custom full-screen view (e.g. bed mesh heatmap) must keep all drawn content above `STATUS_Y = 360` or it will be corrupted by the periodic status redraw.
+
 ## Commit convention
 
-Conventional Commits (`feat:`, `fix:`, `chore:`, etc.). All commits include:
-```
-Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
-```
+Conventional Commits (`feat:`, `fix:`, `chore:`, etc.). All commits do not include attribution.

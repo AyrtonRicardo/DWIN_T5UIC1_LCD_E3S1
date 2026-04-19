@@ -1839,7 +1839,9 @@ class DWIN_LCD:
 			return self.rgb565(int(200 * f), int(200 * (1 - f)), 0)
 
 	def Draw_Bed_Mesh_Screen(self, mesh):
-		self.Clear_Popup_Area()
+		# Use Clear_Main_Window (y=0-360 only) so the status bar is never
+		# touched — EachMomentUpdate keeps redrawing it independently.
+		self.Clear_Main_Window()
 		self.lcd.Draw_String(False, False, self.lcd.font8x16, self.lcd.Color_White,
 			self.lcd.Color_Bg_Blue, 80, 8, "Bed Mesh")
 
@@ -1856,12 +1858,12 @@ class DWIN_LCD:
 		vmin = min(all_vals)
 		vmax = max(all_vals)
 
-		# Grid must stay within the menu area (y=31 to STATUS_Y=360)
-		# so EachMomentUpdate redraws of the status bar don't corrupt it.
+		# Grid stays within menu area (y=31–359) so the status bar
+		# drawn by EachMomentUpdate at y=360+ never overlaps the grid.
 		GRID_X = 16
 		GRID_Y = 40
 		GRID_W = self.lcd.DWIN_WIDTH - 32  # 240px with 16px margins
-		GRID_H = 270                        # y=40 to y=310, well within STATUS_Y=360
+		GRID_H = 250                        # y=40–290, leaves room for two label rows
 		cell_w = GRID_W // cols
 		cell_h = GRID_H // rows
 
@@ -1873,12 +1875,12 @@ class DWIN_LCD:
 				y0 = GRID_Y + r * cell_h
 				self.lcd.Draw_Rectangle(1, color, x0, y0, x0 + cell_w - 1, y0 + cell_h - 1)
 
-		label_y = GRID_Y + GRID_H + 8  # y=318, still within menu area
-		self.lcd.Draw_String(False, False, self.lcd.font6x12, self.lcd.Color_White,
-			self.lcd.Color_Bg_Black, 16, label_y,
-			"Lo:{:.3f}  Hi:{:.3f}".format(vmin, vmax))
-		self.lcd.Draw_String(False, False, self.lcd.font6x12, self.lcd.Line_Color,
-			self.lcd.Color_Bg_Black, 72, label_y + 16, "Click to go back")
+		# font8x16 — font6x12 is unreliable on TJC displays
+		self.lcd.Draw_String(False, False, self.lcd.font8x16, self.lcd.Color_White,
+			self.lcd.Color_Bg_Black, 16, 300,
+			"Lo:{:.3f} Hi:{:.3f}".format(vmin, vmax))
+		self.lcd.Draw_String(False, False, self.lcd.font8x16, self.lcd.Line_Color,
+			self.lcd.Color_Bg_Black, 60, 320, "Click to go back")
 		self.lcd.UpdateLCD()
 
 	def HMI_BedMesh(self):
@@ -1889,6 +1891,7 @@ class DWIN_LCD:
 			self.checkkey = self.Info
 			self.select_info.reset()
 			self.Draw_Info_Menu()
+			self.Draw_Status_Area(True)
 		self.lcd.UpdateLCD()
 
 	def Draw_Tune_Menu(self):
