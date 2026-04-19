@@ -1845,7 +1845,7 @@ class DWIN_LCD:
 		self.lcd.Draw_String(False, False, self.lcd.font8x16, self.lcd.Color_White,
 			self.lcd.Color_Bg_Blue, 80, 8, "Bed Mesh")
 
-		matrix = mesh.get('mesh_matrix') or mesh.get('probed_matrix')
+		matrix = mesh.get('probed_matrix') or mesh.get('mesh_matrix')
 		if not matrix:
 			self.lcd.Draw_String(False, False, self.lcd.font8x16, self.lcd.Color_White,
 				self.lcd.Color_Bg_Black, 20, 200, "No mesh data")
