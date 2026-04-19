@@ -146,6 +146,7 @@ class DWIN_LCD:
 	Print_window = 33
 	Popup_Window = 34
 	BedMesh = 35
+	GcodeViz = 36
 
 	MINUNITMULT = 10
 
@@ -721,21 +722,27 @@ class DWIN_LCD:
 			return
 
 		if (encoder_diffState == self.ENCODER_DIFF_CW):
-			if (self.select_print.inc(3)):
+			if (self.select_print.inc(4)):
 				if self.select_print.now == 0:
 					self.ICON_Tune()
+					self.ICON_VizButton(False)
 				elif self.select_print.now == 1:
 					self.ICON_Tune()
 					if (self.pd.printingIsPaused()):
 						self.ICON_Continue()
 					else:
 						self.ICON_Pause()
+					self.ICON_VizButton(False)
 				elif self.select_print.now == 2:
 					if (self.pd.printingIsPaused()):
 						self.ICON_Continue()
 					else:
 						self.ICON_Pause()
 					self.ICON_Stop()
+					self.ICON_VizButton(False)
+				elif self.select_print.now == 3:
+					self.ICON_Stop()
+					self.ICON_VizButton(True)
 		elif (encoder_diffState == self.ENCODER_DIFF_CCW):
 			if (self.select_print.dec()):
 				if self.select_print.now == 0:
@@ -744,14 +751,17 @@ class DWIN_LCD:
 						self.ICON_Continue()
 					else:
 						self.ICON_Pause()
+					self.ICON_VizButton(False)
 				elif self.select_print.now == 1:
 					if (self.pd.printingIsPaused()):
 						self.ICON_Continue()
 					else:
 						self.ICON_Pause()
 					self.ICON_Stop()
+					self.ICON_VizButton(False)
 				elif self.select_print.now == 2:
 					self.ICON_Stop()
+					self.ICON_VizButton(False)
 		elif (encoder_diffState == self.ENCODER_DIFF_ENTER):
 			if self.select_print.now == 0:  # Tune
 				self.checkkey = self.Tune
@@ -771,6 +781,9 @@ class DWIN_LCD:
 				self.pd.HMI_flag.select_flag = True
 				self.checkkey = self.Print_window
 				self.Popup_window_PauseOrStop()
+			elif self.select_print.now == 3:  # Toolpath visualizer
+				self.checkkey = self.GcodeViz
+				self.Draw_GCode_Viz_Screen()
 		self.lcd.UpdateLCD()
 
 	# Pause and Stop window */
@@ -1894,6 +1907,65 @@ class DWIN_LCD:
 			self.Draw_Status_Area(True)
 		self.lcd.UpdateLCD()
 
+	def _viz_scale(self):
+		"""Return (ox, oy, scale) mapping bed coords to screen pixels."""
+		x_max = max(self.pd.X_MAX_POS, 1)
+		y_max = max(self.pd.Y_MAX_POS, 1)
+		VIZ_W = self.lcd.DWIN_WIDTH - 32   # 240px with 16px margins
+		VIZ_H = 270                          # y=45-315 (within menu area y<360)
+		scale = min(VIZ_W / x_max, VIZ_H / y_max)
+		ox = 16 + (VIZ_W - x_max * scale) / 2
+		oy = 45 + (VIZ_H - y_max * scale) / 2
+		return ox, oy, scale
+
+	def Draw_GCode_Viz_Screen(self):
+		self.Clear_Main_Window()
+		self.lcd.Draw_String(False, False, self.lcd.font8x16, self.lcd.Color_White,
+			self.lcd.Color_Bg_Blue, 70, 8, "Toolpath View")
+
+		ox, oy, scale = self._viz_scale()
+		x_max = self.pd.X_MAX_POS
+		y_max = self.pd.Y_MAX_POS
+
+		# Bed border rectangle
+		bx0 = int(ox)
+		by0 = int(oy)
+		bx1 = int(ox + x_max * scale)
+		by1 = int(oy + y_max * scale)
+		self.lcd.Draw_Rectangle(0, self.lcd.Color_White, bx0, by0, bx1, by1)
+
+		# Current position dot
+		self._viz_draw_dot()
+
+		# Z label
+		z = getattr(self.pd.current_position, 'z', 0) or 0
+		self.lcd.Draw_String(False, False, self.lcd.font8x16, self.lcd.Color_White,
+			self.lcd.Color_Bg_Black, 16, 320, "Z:{:.2f}  Click=Back".format(z))
+
+		self._viz_last_x = getattr(self.pd.current_position, 'x', 0) or 0
+		self._viz_last_y = getattr(self.pd.current_position, 'y', 0) or 0
+		self.lcd.UpdateLCD()
+
+	def _viz_draw_dot(self):
+		"""Plot current toolhead position as a 3×3 dot on the bed map."""
+		ox, oy, scale = self._viz_scale()
+		x = getattr(self.pd.current_position, 'x', 0) or 0
+		y = getattr(self.pd.current_position, 'y', 0) or 0
+		# Flip Y: Klipper y=0 is front of bed (bottom of map)
+		px = int(ox + x * scale)
+		py = int(oy + (self.pd.Y_MAX_POS - y) * scale)
+		self.lcd.Draw_Rectangle(1, self.rgb565(255, 100, 0), px - 1, py - 1, px + 1, py + 1)
+
+	def HMI_GcodeViz(self):
+		encoder_diffState = self.get_encoder_state()
+		if encoder_diffState == self.ENCODER_DIFF_NO:
+			return
+		# Any encoder action returns to the print process screen
+		self.select_print.set(0)
+		self.Goto_PrintProcess()
+		self.Draw_Status_Area(True)
+		self.lcd.UpdateLCD()
+
 	def Draw_Tune_Menu(self):
 		self.Clear_Main_Window()
 		self.lcd.Frame_AreaCopy(1, 94, 2, 126, 12, 14, 9)
@@ -2298,6 +2370,15 @@ class DWIN_LCD:
 			self.lcd.ICON_Show(self.ICON, self.ICON_Stop_0, 184, 252)
 			self.lcd.Frame_AreaCopy(1, 218, 423, 247, 436, 209, 325)
 
+	def ICON_VizButton(self, selected):
+		# Uses the gap at y=230-249 between time display (y<=228) and button icons (y>=252)
+		if selected:
+			bg = self.lcd.Select_Color
+			self.lcd.Draw_Rectangle(1, bg, 8, 230, 263, 249)
+			self.lcd.Draw_String(False, False, self.lcd.font8x16, self.lcd.Color_White, bg, 42, 231, "[ View Toolpath ]")
+		else:
+			self.lcd.Draw_Rectangle(1, self.lcd.Color_Bg_Black, 8, 230, 263, 249)
+
 	def Item_Prepare_Move(self, row):
 		self.draw_move_en(self.MBASE(row))  # "Move >"
 		self.Draw_Menu_Line(row, self.ICON_Axis)
@@ -2366,6 +2447,17 @@ class DWIN_LCD:
 			self.Draw_Print_ProgressBar()
 			self.Draw_Print_ProgressElapsed()
 			self.Draw_Print_ProgressRemain()
+
+		if self.checkkey == self.GcodeViz:
+			x = getattr(self.pd.current_position, 'x', 0) or 0
+			y = getattr(self.pd.current_position, 'y', 0) or 0
+			if x != getattr(self, '_viz_last_x', None) or y != getattr(self, '_viz_last_y', None):
+				self._viz_draw_dot()
+				self._viz_last_x = x
+				self._viz_last_y = y
+				z = getattr(self.pd.current_position, 'z', 0) or 0
+				self.lcd.Draw_String(False, False, self.lcd.font8x16, self.lcd.Color_White,
+					self.lcd.Color_Bg_Black, 16, 320, "Z:{:.2f}  Click=Back".format(z))
 
 		if self.pd.HMI_flag.home_flag:
 			if self.pd.ishomed():
@@ -2438,6 +2530,8 @@ class DWIN_LCD:
 			self.HMI_StepXYZE()
 		elif self.checkkey == self.BedMesh:
 			self.HMI_BedMesh()
+		elif self.checkkey == self.GcodeViz:
+			self.HMI_GcodeViz()
 
 	def get_encoder_state(self):
 		if self.EncoderRateLimit:
