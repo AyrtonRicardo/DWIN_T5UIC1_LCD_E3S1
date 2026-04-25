@@ -7,6 +7,7 @@ Type=idle
 EnvironmentFile=/etc/simpleLCD.env
 ExecStartPre=/bin/sleep 20
 ExecStart=/usr/local/bin/simpleLCD
+Restart=always
 
 [Install]
 WantedBy=multi-user.target
