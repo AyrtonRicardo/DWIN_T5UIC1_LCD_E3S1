@@ -274,6 +274,34 @@ class PrinterData:
 
 	display_status = ""
 
+	s_RESTART = "Restart"
+	s_KLIPPER = "Klipper "
+	s_FW = "FW "
+	s_HOST = "Host "
+	s_SHUTDOWN = "Shutdown"
+	s_SETTINGS = "Settings"
+	s_HOME = "Home"
+	s_HOT = "Hot "
+	s_BED = "Bed "
+	s_PRINT_FILE = "Print file"
+	s_PREPARE = "Prepare"
+	s_CONTROL = "Control"
+	s_INFO = "Info"
+	s_TUNE = "Tune"
+	s_TEMPERATURE = "Temperature"
+	s_MOTION = "Motion"
+	s_MOVE = "Move"
+	s_BACK = "Back"
+	s_TIME = "Time"
+	s_PRINTING = "Printing "
+	s_REMAIN = "Remain"
+	s_PREHEAT = "Preheat"
+	s_COOLDOWN = "Cooldown"
+	s_PRINT = "Print"
+	s_PAUSE = "Pause"
+	s_STOP = "Stop"
+	s_CONTINUE = "Cont"
+
 	def __init__(self, API_Key, URL='127.0.0.1', klippy_socket='~/printer_data/comms/klippy.sock'):
 		self.op = MoonrakerSocket(URL, 80, API_Key)
 		self.status = None
