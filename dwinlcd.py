@@ -926,11 +926,11 @@ class DWIN_LCD:
 				self.EncoderRateLimit = False
 			elif self.select_tune.now == self.TUNE_CASE_FAN:	# Fan speed
 				self.checkkey = self.FanSpeed
-				self.pd.HMI_ValueStruct.Fan_speed = self.pd.fanspeed_percentage
+				self.pd.HMI_ValueStruct.Fan_speed = self.pd.thermalManager['fan_speed'][0]
 				self.lcd.Draw_IntValue(
 					True, True, 0, self.lcd.font8x16, self.lcd.Color_White, self.lcd.Select_Color,
 					3, 216, self.MBASE(self.select_tune.now + self.MROWS - self.index_tune),
-					self.pd.fanspeed_percentage
+					self.pd.thermalManager['fan_speed'][0]
 				)
 				self.EncoderRateLimit = False
 			elif self.select_tune.now == self.TUNE_CASE_ZOFF:   #z offset
@@ -1084,7 +1084,7 @@ class DWIN_LCD:
 			self.pd.HMI_ValueStruct.Fan_speed
 		)
 
-	def HMI_fw_retract_length(self):	#sur #TODO FIX
+	def HMI_fw_retract_length(self):
 		encoder_diffState = self.get_encoder_state()
 		if (encoder_diffState == self.ENCODER_DIFF_NO):
 			return
