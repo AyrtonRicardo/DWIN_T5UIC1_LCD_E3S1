@@ -1,13 +1,14 @@
 [Unit]
 Description=DWIN LCD Service
-After=multi-user.target
+After=network.target
 
 [Service]
-Type=idle
+Type=simple
 EnvironmentFile=/etc/simpleLCD.env
 ExecStartPre=/bin/sleep 20
 ExecStart=/usr/local/bin/simpleLCD
 Restart=always
+RestartSec=5
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target

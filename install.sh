@@ -38,7 +38,7 @@ read -p "Reverse encoder direction? (Voxelab Aquila) [y/N]: " REVERSE_ENCODER
 ENCODER_REVERSED="false"
 [[ "$REVERSE_ENCODER" =~ ^[Yy]$ ]] && ENCODER_REVERSED="true"
 
-# Write env file
+# Write env file (system-wide so the shim and manual runs can both find it)
 sudo tee /etc/simpleLCD.env > /dev/null << EOF
 INSTALL_DIR=$INSTALL_DIR
 LCD_SERIAL_PORT=$SERIAL_PORT
@@ -52,7 +52,7 @@ echo "Written /etc/simpleLCD.env"
 # Make scripts executable
 chmod +x "$INSTALL_DIR/run.sh" "$INSTALL_DIR/restart.sh"
 
-# Create shim at fixed path so systemd ExecStart can use an absolute path
+# Create shim at fixed path so the service ExecStart is an absolute path
 sudo tee /usr/local/bin/simpleLCD > /dev/null << 'SHIM'
 #!/bin/bash
 source /etc/simpleLCD.env
@@ -61,14 +61,33 @@ SHIM
 sudo chmod +x /usr/local/bin/simpleLCD
 echo "Written /usr/local/bin/simpleLCD"
 
-# Symlink service file
-sudo ln -sf "$INSTALL_DIR/simpleLCD.service" /lib/systemd/system/simpleLCD.service
-echo "Symlinked simpleLCD.service -> /lib/systemd/system/simpleLCD.service"
+# Migrate away from any old system-level service
+if systemctl is-enabled --quiet simpleLCD.service 2>/dev/null; then
+    echo "Removing old system-level simpleLCD.service..."
+    sudo systemctl disable --now simpleLCD.service 2>/dev/null || true
+fi
+sudo rm -f /lib/systemd/system/simpleLCD.service /etc/systemd/system/simpleLCD.service
+sudo systemctl daemon-reload 2>/dev/null || true
 
-sudo systemctl daemon-reload
-sudo systemctl enable simpleLCD.service
+# Install as a user-level service
+mkdir -p "$HOME/.config/systemd/user"
+ln -sf "$INSTALL_DIR/simpleLCD.service" "$HOME/.config/systemd/user/simpleLCD.service"
+echo "Symlinked simpleLCD.service -> $HOME/.config/systemd/user/simpleLCD.service"
+
+systemctl --user daemon-reload
+systemctl --user enable simpleLCD.service
+
+# Allow the user service to start at boot (without an interactive login session)
+loginctl enable-linger "$USER"
 
 echo ""
 echo "Installation complete!"
-echo "Start with:     sudo systemctl start simpleLCD.service"
-echo "View logs with: journalctl -u simpleLCD.service -f"
+echo "Start with:     systemctl --user start simpleLCD.service"
+echo "Stop with:      systemctl --user stop simpleLCD.service"
+echo "Restart with:   systemctl --user restart simpleLCD.service"
+echo "View logs with: journalctl --user -u simpleLCD.service -f"
+echo ""
+echo "To stop the LCD before running input shaper from a shell:"
+echo "  systemctl --user stop simpleLCD.service"
+echo "  # run input shaper tests"
+echo "  systemctl --user start simpleLCD.service"

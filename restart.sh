@@ -1,1 +1,2 @@
-service klipper restart
+#!/bin/bash
+systemctl --user restart simpleLCD.service
