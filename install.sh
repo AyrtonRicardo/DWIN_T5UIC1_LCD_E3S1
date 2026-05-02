@@ -7,16 +7,24 @@ echo "=== DWIN T5UIC1 LCD Installer ==="
 echo "Install directory: $INSTALL_DIR"
 echo ""
 
-read -p "Serial port [/dev/ttyAMA0]: " SERIAL_PORT
-SERIAL_PORT="${SERIAL_PORT:-/dev/ttyAMA0}"
+# Load existing config as defaults if present
+if [ -f /etc/simpleLCD.env ]; then
+    source /etc/simpleLCD.env
+    echo "(Found existing /etc/simpleLCD.env — using its values as defaults)"
+    echo ""
+fi
 
-read -p "Moonraker URL [127.0.0.1]: " MOONRAKER_URL
-MOONRAKER_URL="${MOONRAKER_URL:-127.0.0.1}"
+read -p "Serial port [${LCD_SERIAL_PORT:-/dev/ttyAMA0}]: " INPUT
+LCD_SERIAL_PORT="${INPUT:-${LCD_SERIAL_PORT:-/dev/ttyAMA0}}"
 
-read -p "Moonraker API Key (leave empty if none): " MOONRAKER_API_KEY
+read -p "Moonraker URL [${MOONRAKER_URL:-127.0.0.1}]: " INPUT
+MOONRAKER_URL="${INPUT:-${MOONRAKER_URL:-127.0.0.1}}"
 
-# Auto-detect Klippy socket from common locations
-KLIPPY_SOCKET_DEFAULT=""
+read -p "Moonraker API Key [${MOONRAKER_API_KEY:-(none)}]: " INPUT
+MOONRAKER_API_KEY="${INPUT:-${MOONRAKER_API_KEY:-}}"
+
+# Auto-detect Klippy socket from common locations, fall back to existing value
+KLIPPY_SOCKET_DEFAULT="${KLIPPY_SOCKET:-}"
 for candidate in \
     "$HOME/printer_data/comms/klippy.sock" \
     "/tmp/klippy_uds" \
@@ -27,21 +35,44 @@ for candidate in \
     fi
 done
 
-if [ -n "$KLIPPY_SOCKET_DEFAULT" ]; then
-    read -p "Klippy socket path [$KLIPPY_SOCKET_DEFAULT]: " KLIPPY_SOCKET
-    KLIPPY_SOCKET="${KLIPPY_SOCKET:-$KLIPPY_SOCKET_DEFAULT}"
+read -p "Klippy socket path [${KLIPPY_SOCKET_DEFAULT}]: " INPUT
+KLIPPY_SOCKET="${INPUT:-${KLIPPY_SOCKET_DEFAULT}}"
+
+ENCODER_REVERSED_DEFAULT="${ENCODER_REVERSED:-false}"
+read -p "Reverse encoder direction? (Voxelab Aquila) [${ENCODER_REVERSED_DEFAULT}]: " INPUT
+if [ -n "$INPUT" ]; then
+    [[ "$INPUT" =~ ^[Yy]$ ]] && ENCODER_REVERSED="true" || ENCODER_REVERSED="false"
 else
-    read -p "Klippy socket path (not auto-detected, enter manually): " KLIPPY_SOCKET
+    ENCODER_REVERSED="$ENCODER_REVERSED_DEFAULT"
 fi
 
-read -p "Reverse encoder direction? (Voxelab Aquila) [y/N]: " REVERSE_ENCODER
-ENCODER_REVERSED="false"
-[[ "$REVERSE_ENCODER" =~ ^[Yy]$ ]] && ENCODER_REVERSED="true"
+# Check for an existing system-level service and offer to migrate
+SYSTEM_SERVICE_FOUND=false
+for f in /lib/systemd/system/simpleLCD.service /etc/systemd/system/simpleLCD.service; do
+    [ -f "$f" ] && SYSTEM_SERVICE_FOUND=true && break
+done
+
+if $SYSTEM_SERVICE_FOUND; then
+    echo ""
+    echo "Found a system-level simpleLCD.service."
+    read -p "Convert it to a user-level service (recommended for input shaper)? [Y/n]: " INPUT
+    if [[ -z "$INPUT" || "$INPUT" =~ ^[Yy]$ ]]; then
+        echo "Removing old system-level service..."
+        sudo systemctl disable --now simpleLCD.service 2>/dev/null || true
+        sudo rm -f /lib/systemd/system/simpleLCD.service /etc/systemd/system/simpleLCD.service
+        sudo systemctl daemon-reload
+        echo "Done."
+    else
+        echo "Keeping system-level service. Installer will still update env file and shim."
+        echo "Note: you will need sudo to stop/start the service."
+    fi
+    echo ""
+fi
 
 # Write env file (system-wide so the shim and manual runs can both find it)
 sudo tee /etc/simpleLCD.env > /dev/null << EOF
 INSTALL_DIR=$INSTALL_DIR
-LCD_SERIAL_PORT=$SERIAL_PORT
+LCD_SERIAL_PORT=$LCD_SERIAL_PORT
 MOONRAKER_URL=$MOONRAKER_URL
 MOONRAKER_API_KEY=$MOONRAKER_API_KEY
 KLIPPY_SOCKET=$KLIPPY_SOCKET
@@ -60,14 +91,6 @@ exec "$INSTALL_DIR/run.sh"
 SHIM
 sudo chmod +x /usr/local/bin/simpleLCD
 echo "Written /usr/local/bin/simpleLCD"
-
-# Migrate away from any old system-level service
-if systemctl is-enabled --quiet simpleLCD.service 2>/dev/null; then
-    echo "Removing old system-level simpleLCD.service..."
-    sudo systemctl disable --now simpleLCD.service 2>/dev/null || true
-fi
-sudo rm -f /lib/systemd/system/simpleLCD.service /etc/systemd/system/simpleLCD.service
-sudo systemctl daemon-reload 2>/dev/null || true
 
 # Install as a user-level service
 mkdir -p "$HOME/.config/systemd/user"
